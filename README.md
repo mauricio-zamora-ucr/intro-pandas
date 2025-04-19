@@ -36,7 +36,7 @@ Usaremos `pd.read_csv()` para cargar nuestros datos de ventas en un DataFrame.
 
 ```python
 # Cargar el archivo CSV en un DataFrame de Pandas
-file_path = 'mps-mrp.csv' # Asegúrate que el archivo esté en la misma carpeta
+file_path = 'datos/mps-mrp.csv' # Asegúrate que el archivo esté en la misma carpeta
 try:
     df_ventas = pd.read_csv(file_path)
     print("Archivo CSV cargado exitosamente.")
