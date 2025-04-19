@@ -1,15 +1,9 @@
-Okay, ¡excelente idea! Usar Python y Pandas es una forma muy práctica y relevante para que los estudiantes de Ingeniería Industrial aprendan y apliquen estos conceptos.
+# **Tutorial: Introducción a Pandas y Cálculo de MPS para Ingeniería Industrial**
 
-Aquí tienes un tutorial detallado, paso a paso, diseñado para estudiantes con conocimientos básicos de Python pero nuevos en Pandas, utilizando el archivo CSV que proporcionaste.
-
----
-
-**Tutorial: Introducción a Pandas y Cálculo de MPS para Ingeniería Industrial**
-
-**Objetivo:**
+## **Objetivo:**
 Este tutorial te guiará a través de los fundamentos de la librería Pandas en Python, una herramienta esencial para el análisis de datos. Aprenderás a cargar, manipular, analizar y visualizar datos de ventas. Luego, aplicaremos estos conocimientos para calcular el Plan Maestro de Producción (MPS) utilizando las estrategias Nivelada, Perseguidor y Mixta, basándonos en datos históricos de ventas como pronóstico simplificado.
 
-**Prerrequisitos:**
+## **Prerrequisitos:**
 * Conocimientos básicos de Python (variables, tipos de datos, bucles, condicionales).
 * Tener Python instalado en tu sistema.
 * Tener la librería Pandas instalada. Si no la tienes, abre tu terminal o command prompt y ejecuta: `pip install pandas matplotlib`
@@ -17,9 +11,9 @@ Este tutorial te guiará a través de los fundamentos de la librería Pandas en 
 
 ---
 
-**Parte 1: Fundamentos de Pandas**
+## **Parte 1: Fundamentos de Pandas**
 
-**1.1 Introducción a Pandas y Configuración Inicial**
+### **1.1 Introducción a Pandas y Configuración Inicial**
 
 Pandas es una librería de Python que proporciona estructuras de datos de alto rendimiento y fáciles de usar, junto con herramientas de análisis de datos. Es fundamental para cualquier tarea que involucre manipulación y análisis de datos tabulares (como hojas de cálculo o tablas de bases de datos).
 
@@ -36,7 +30,7 @@ import matplotlib.pyplot as plt # Para gráficos
 print("Librerías importadas correctamente.")
 ```
 
-**1.2 Cargar Datos desde un CSV**
+### **1.2 Cargar Datos desde un CSV**
 
 Usaremos `pd.read_csv()` para cargar nuestros datos de ventas en un DataFrame.
 
@@ -128,13 +122,13 @@ print("\nSelección de filas y columnas específicas con .loc:")
 print(df_ventas.loc[df_ventas['Cliente'] == 'Industrias ACME', ['Fecha', 'Cliente', 'Cantidad_Vendida']])
 ```
 
-* **Explicación:**
+#### * **Explicación:**
     * Usamos corchetes `[]` para seleccionar columnas. Un solo nombre devuelve una `Serie`, una lista de nombres `[['col1', 'col2']]` devuelve un `DataFrame`.
     * `.loc` selecciona por la *etiqueta* de la fila (el índice, que por defecto son números, pero podrían ser fechas u otros identificadores) y nombres de columna.
     * `.iloc` selecciona por la *posición* numérica de la fila y columna (empezando en 0).
     * La **indexación booleana** es muy poderosa: creas una condición (`df['col'] > valor`) que devuelve una Serie de True/False, y al pasarla al DataFrame entre corchetes, se seleccionan solo las filas donde la condición es True.
 
-**1.4 Cálculos a Nivel de Filas y Columnas**
+### **1.4 Cálculos a Nivel de Filas y Columnas**
 
 Podemos crear nuevas columnas basadas en cálculos de otras.
 
@@ -170,11 +164,11 @@ print(df_ventas[['Ingreso_Total', 'Descuento', 'Ingreso_Neto']].head())
 # df_ventas = df_ventas.drop(columns=['Descuento', 'Ingreso_Neto'])
 ```
 
-* **Explicación:**
+#### * **Explicación:**
     * Crear una nueva columna es tan simple como asignar el resultado de una operación a `df['Nueva_Columna']`. Pandas realiza la operación fila por fila automáticamente (vectorización).
     * Para cálculos condicionales por fila, `.loc` junto con una condición booleana es muy eficiente para actualizar valores en filas específicas.
 
-**1.5 Procesamiento de Fechas y Agrupación**
+### **1.5 Procesamiento de Fechas y Agrupación**
 
 Las fechas son cruciales. Necesitamos convertirlas al tipo de dato correcto y luego podremos agrupar por diferentes períodos.
 
@@ -233,14 +227,14 @@ print(ventas_semanales_prod_resample.head(10)) # Muestra ventas semanales de los
 # df_ventas = df_ventas_idx.reset_index()
 ```
 
-* **Explicación:**
+#### * **Explicación:**
     * `pd.to_datetime()` convierte texto a objetos de fecha/hora de Pandas.
     * El accesor `.dt` permite extraer componentes como año, mes, semana, día de la semana, etc., de una columna datetime.
     * `.groupby(['col1', 'col2'])` agrupa las filas que tienen los mismos valores en las columnas especificadas.
     * Después de `.groupby()`, especificamos la columna a agregar (`['Cantidad_Vendida']`) y la función de agregación (`.sum()`, `.mean()`, `.count()`, etc.).
     * `resample()` es específico para series temporales. Requiere un índice de fecha/hora (`set_index('Fecha')`). Permite agrupar por frecuencias estándar ('D'ía, 'W'eek, 'M'onth, 'Q'uarter, 'Y'ear) o personalizadas ('2W' = 2 semanas).
 
-**1.6 Gráficos Básicos**
+### **1.6 Gráficos Básicos**
 
 Pandas se integra con Matplotlib para crear gráficos rápidamente.
 
@@ -285,18 +279,18 @@ plt.tight_layout()
 plt.show()
 ```
 
-* **Explicación:**
+#### * **Explicación:**
     * El método `.plot()` se puede llamar directamente sobre una Serie o DataFrame de Pandas.
     * El argumento `kind=` especifica el tipo de gráfico ('line', 'bar', 'hist', 'box', 'scatter', etc.).
     * Usamos `matplotlib.pyplot` (alias `plt`) para personalizar el gráfico (títulos, etiquetas, tamaño, rejilla) y para mostrarlo (`plt.show()`).
 
 ---
 
-**Parte 2: Cálculo del Plan Maestro de Producción (MPS)**
+## **Parte 2: Cálculo del Plan Maestro de Producción (MPS)**
 
 Ahora aplicaremos lo aprendido para calcular el MPS.
 
-**2.1 Preparación de Datos para MPS**
+### **2.1 Preparación de Datos para MPS**
 
 Necesitamos una serie temporal de la demanda para un producto específico. Usaremos las ventas semanales agregadas como nuestro pronóstico de demanda.
 
@@ -333,9 +327,9 @@ print(f"\nDemanda semanal preparada para el producto: {PRODUCTO_A_PLANIFICAR}")
 print(demanda_semanal.head())
 ```
 
-**2.2 Ejercicio 1: Calcular MPS Perseguidor (Chase)**
+### **2.2 Ejercicio 1: Calcular MPS Perseguidor (Chase)**
 
-* **Objetivo:** Producir lo necesario para cumplir la demanda de cada semana, terminando con el stock de seguridad, sin exceder la capacidad.
+#### * **Objetivo:** Producir lo necesario para cumplir la demanda de cada semana, terminando con el stock de seguridad, sin exceder la capacidad.
 
 ```python
 print("\n--- Calculando MPS Perseguidor (Chase) ---")
@@ -412,9 +406,9 @@ plt.tight_layout()
 plt.show()
 ```
 
-**2.3 Ejercicio 2: Calcular MPS Nivelado (Level)**
+### **2.3 Ejercicio 2: Calcular MPS Nivelado (Level)**
 
-* **Objetivo:** Producir una cantidad constante cada semana, usando el inventario para absorber variaciones de demanda.
+#### * **Objetivo:** Producir una cantidad constante cada semana, usando el inventario para absorber variaciones de demanda.
 
 ```python
 print("\n--- Calculando MPS Nivelado (Level) ---")
@@ -504,7 +498,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-**2.4 Ejercicio 3: Calcular MPS Mixto (Mixed)**
+### **2.4 Ejercicio 3: Calcular MPS Mixto (Mixed)**
 
 * **Objetivo:** Combinar estrategias. Por ejemplo, usar Nivelado cuando la demanda se acerca a la capacidad y Perseguidor el resto del tiempo.
 * **Definición de la Estrategia Mixta:** Para este ejemplo, definiremos una regla simple: si la producción *requerida* por la estrategia Perseguidor (antes de aplicar capacidad) supera un umbral (ej. 80% de la capacidad), usaremos una producción Nivelada (limitada por capacidad); de lo contrario, usaremos Perseguidor.
@@ -618,11 +612,11 @@ plt.show()
 
 ---
 
-**Parte 3: Conclusión y Próximos Pasos**
+## **Parte 3: Conclusión y Próximos Pasos**
 
 ¡Felicidades! Has completado este tutorial introductorio a Pandas y su aplicación en el cálculo del MPS.
 
-**Hemos cubierto:**
+#### **Hemos cubierto:**
 
 * Carga y exploración de datos con Pandas.
 * Selección y manipulación de filas y columnas.
@@ -631,7 +625,7 @@ plt.show()
 * Creación de gráficos básicos para visualización.
 * Implementación paso a paso de las estrategias MPS: Perseguidor, Nivelado y Mixta, considerando inventario inicial, stock de seguridad y capacidad.
 
-**Próximos Pasos:**
+#### **Próximos Pasos:**
 
 * **Experimenta:** Cambia los parámetros (`INVENTARIO_INICIAL`, `STOCK_SEGURIDAD`, `CAPACIDAD_PRODUCCION_SEMANAL`), elige otro producto (`PRODUCTO_A_PLANIFICAR`) y observa cómo cambian los resultados del MPS.
 * **Mejora el Pronóstico:** Investiga métodos de pronóstico más avanzados que usar simplemente las ventas históricas (medias móviles, suavización exponencial, ARIMA - aunque esto requiere más conocimiento estadístico y librerías como `statsmodels`).
