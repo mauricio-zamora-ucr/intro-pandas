@@ -523,29 +523,30 @@ if mps_level['Demanda_Insatisfecha'].sum() > 0:
 else:
     print("\nNo hubo demanda insatisfecha en el plan nivelado.")
     plt.close() # Cerrar la figura si no hay nada que mostrar
+```
 
 ### **2.4 Ejercicio 3: Calcular MPS Mixto (Mixed)**
 
 * **Objetivo:** Combinar estrategias. Por ejemplo, usar Nivelado cuando la demanda se acerca a la capacidad y Perseguidor el resto del tiempo.
 * **Definición de la Estrategia Mixta:** Para este ejemplo, definiremos una regla simple: si la producción *requerida* por la estrategia Perseguidor (antes de aplicar capacidad) supera un umbral (ej. 80% de la capacidad), usaremos una producción Nivelada (limitada por capacidad); de lo contrario, usaremos Perseguidor.
 
-```python
-print("\n--- Calculando MPS Mixto ---")
+```Python
+print("\n--- Calculando MPS Mixto - MEJORADO (con Demanda Insatisfecha) ---")
 
-# Umbral para decidir cuándo nivelar (ej. 80% de la capacidad)
+# Umbral y producción nivelada (igual que antes)
 UMBRAL_CAPACIDAD_NIVELAR = CAPACIDAD_PRODUCCION_SEMANAL * 0.80
-# Producción a usar cuando se decide nivelar (podría ser la capacidad máxima)
 PRODUCCION_CUANDO_NIVELADO = CAPACIDAD_PRODUCCION_SEMANAL
 
 print(f"Estrategia Mixta: Usar Nivelado ({PRODUCCION_CUANDO_NIVELADO} unidades) si Chase requiere > {UMBRAL_CAPACIDAD_NIVELAR}, sino usar Chase.")
 
-# Crear DataFrame para el MPS Mixto
+# Crear DataFrame para el MPS Mixto - Añadir columna Demanda Insatisfecha
 mps_mixed = demanda_semanal.copy()
 mps_mixed['Inventario_Inicial'] = 0.0
 mps_mixed['Plan_Produccion'] = 0.0
 mps_mixed['Disponible'] = 0.0
 mps_mixed['Inventario_Final'] = 0.0
-mps_mixed['Estrategia_Usada'] = '' # Para ver qué se decidió
+mps_mixed['Demanda_Insatisfecha'] = 0.0 # Nueva columna
+mps_mixed['Estrategia_Usada'] = ''
 
 # Inicializar inventario
 inv_anterior = INVENTARIO_INICIAL
@@ -554,6 +555,7 @@ inv_anterior = INVENTARIO_INICIAL
 for index, row in mps_mixed.iterrows():
     periodo = row['Periodo']
     demanda_periodo = row['Demanda']
+    demanda_insatisfecha_periodo = 0 # Inicializar
 
     inv_inicial_periodo = inv_anterior
     mps_mixed.loc[index, 'Inventario_Inicial'] = inv_inicial_periodo
@@ -563,11 +565,9 @@ for index, row in mps_mixed.iterrows():
 
     # Decidir la estrategia
     if produccion_necesaria_chase > UMBRAL_CAPACIDAD_NIVELAR:
-        # Usar estrategia Nivelada (limitada por capacidad)
         plan_produccion_periodo = min(CAPACIDAD_PRODUCCION_SEMANAL, PRODUCCION_CUANDO_NIVELADO)
         estrategia = 'Nivelado'
     else:
-        # Usar estrategia Chase (limitada por capacidad)
         plan_produccion_periodo = min(CAPACIDAD_PRODUCCION_SEMANAL, produccion_necesaria_chase)
         estrategia = 'Perseguidor'
 
@@ -577,65 +577,70 @@ for index, row in mps_mixed.iterrows():
     disponible_periodo = inv_inicial_periodo + plan_produccion_periodo
     mps_mixed.loc[index, 'Disponible'] = disponible_periodo
 
-    inv_final_periodo = disponible_periodo - demanda_periodo
-    inv_final_periodo = max(0, inv_final_periodo) # Asegurar no negativos
+    # Calcular inventario final teórico
+    inv_final_teorico = disponible_periodo - demanda_periodo
 
-    mps_mixed.loc[index, 'Inventario_Final'] = inv_final_periodo
+    # --- Manejo de Inventario Negativo y Demanda Insatisfecha ---
+    if inv_final_teorico < 0:
+        # Stockout!
+        demanda_insatisfecha_periodo = abs(inv_final_teorico)
+        inv_final_real = 0 # Inventario físico no puede ser negativo
+        print(f"  *STOCKOUT Mixta {periodo} ({estrategia}): Demanda insatisfecha de {demanda_insatisfecha_periodo:.0f} unidades. Inv Final = 0.")
+    else:
+        # No hubo stockout
+        inv_final_real = inv_final_teorico
+        # Verificar si está por debajo del stock de seguridad
+        if inv_final_real < STOCK_SEGURIDAD:
+             print(f"  *Alerta Mixta {periodo} ({estrategia}): Inventario Final ({inv_final_real:.0f}) "
+                   f"por debajo del Stock de Seguridad ({STOCK_SEGURIDAD}).")
+    # ----------------------------------------------------------
 
-     # Chequeos opcionales de alertas
-    if inv_final_periodo < STOCK_SEGURIDAD:
-         # Verificar si fue por capacidad insuficiente en modo Chase
-         fue_por_capacidad_chase = (estrategia == 'Perseguidor' and produccion_necesaria_chase > plan_produccion_periodo)
-         # Verificar si fue porque el modo Nivelado no fue suficiente
-         fue_por_nivelado_insuficiente = (estrategia == 'Nivelado' and inv_final_periodo < STOCK_SEGURIDAD)
+    # Guardar los valores calculados
+    mps_mixed.loc[index, 'Inventario_Final'] = inv_final_real
+    mps_mixed.loc[index, 'Demanda_Insatisfecha'] = demanda_insatisfecha_periodo
 
-         if fue_por_capacidad_chase:
-             print(f"  *Alerta Mixta {periodo}: Capacidad ({CAPACIDAD_PRODUCCION_SEMANAL}) insuficiente en modo Chase. "
-                   f"Inv Final: {inv_final_periodo:.0f}")
-         elif fue_por_nivelado_insuficiente:
-              print(f"  *Alerta Mixta {periodo}: Inv Final ({inv_final_periodo:.0f}) bajo SS en modo Nivelado.")
-         # Podría haber otros casos donde simplemente la demanda fue alta inesperadamente
+    # Preparar para el siguiente período usando el inventario final REAL
+    inv_anterior = inv_final_real
 
-    inv_anterior = inv_final_periodo
+# Mostrar resultados - Incluir Demanda Insatisfecha
+print("\nResultados MPS Mixto (Mejorado):")
+print(mps_mixed[['Periodo', 'Inventario_Inicial', 'Demanda', 'Plan_Produccion', 'Estrategia_Usada', 'Inventario_Final', 'Demanda_Insatisfecha']].round(0).head(15))
 
-# Mostrar resultados
-print("\nResultados MPS Mixto:")
-print(mps_mixed[['Periodo', 'Inventario_Inicial', 'Demanda', 'Plan_Produccion', 'Estrategia_Usada', 'Inventario_Final']].round(0).head(15))
+# --- Gráficos Actualizados (Similar a la corrección del Nivelado) ---
 
-# Graficar resultados MPS Mixed
+# Gráfico 1: Inventario, Demanda, Producción (puede usar el código anterior de barras coloreadas)
 plt.figure(figsize=(14, 7))
 plt.plot(mps_mixed['Periodo'], mps_mixed['Demanda'], label='Demanda', color='blue', marker='o', linestyle='--')
 # Colorear Plan Producción según estrategia usada
 for idx, row in mps_mixed.iterrows():
     color = 'magenta' if row['Estrategia_Usada'] == 'Nivelado' else 'cyan'
-    plt.bar(row['Periodo'], row['Plan_Produccion'], color=color, alpha=0.7, label=f"{row['Estrategia_Usada']}" if idx == 0 or mps_mixed.loc[idx-1, 'Estrategia_Usada'] != row['Estrategia_Usada'] else "") # Evitar labels repetidos
+    # Evitar labels repetidos en leyenda
+    label_bar = None
+    if idx == 0:
+        label_bar = f"Plan Prod ({row['Estrategia_Usada']})"
+    elif mps_mixed.loc[idx-1, 'Estrategia_Usada'] != row['Estrategia_Usada']:
+         label_bar = f"Plan Prod ({row['Estrategia_Usada']})"
+    plt.bar(row['Periodo'], row['Plan_Produccion'], color=color, alpha=0.7, label=label_bar)
 
 plt.plot(mps_mixed['Periodo'], mps_mixed['Inventario_Final'], label='Inventario Final', color='green', marker='s')
 plt.axhline(STOCK_SEGURIDAD, color='gray', linestyle=':', label=f'Stock Seguridad ({STOCK_SEGURIDAD})')
 plt.axhline(CAPACIDAD_PRODUCCION_SEMANAL, color='orange', linestyle=':', label=f'Capacidad ({CAPACIDAD_PRODUCCION_SEMANAL})')
-plt.title(f'MPS Mixto - {PRODUCTO_A_PLANIFICAR}')
+plt.axhline(0, color='black', linestyle='-', linewidth=0.5) # Línea cero
+plt.title(f'MPS Mixto (Mejorado) - Inventario - {PRODUCTO_A_PLANIFICAR}')
 plt.xlabel('Período (Semana)')
 plt.ylabel('Unidades')
-# Crear handles para leyenda de barras manualmente
-import matplotlib.patches as mpatches
-handles, labels = plt.gca().get_legend_handles_labels()
-patch_nivelado = mpatches.Patch(color='magenta', alpha=0.7, label='Plan Prod (Nivelado)')
-patch_chase = mpatches.Patch(color='cyan', alpha=0.7, label='Plan Prod (Perseguidor)')
-# Evitar duplicados y añadir parches
-unique_labels = {}
-new_handles = []
-for h, l in zip(handles, labels):
-    if l not in unique_labels and 'Nivelado' not in l and 'Perseguidor' not in l:
-        unique_labels[l] = h
-        new_handles.append(h)
-new_handles.extend([patch_nivelado, patch_chase])
-
-plt.legend(handles=new_handles)
+plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.show()
-```
 
+
+# Gráfico 2: Demanda Insatisfecha (Stockouts)
+plt.figure(figsize=(14, 5))
+plt.bar(mps_mixed['Periodo'], mps_mixed['Demanda_Insatisfecha'], label='Demanda Insatisfecha', color='red', alpha=0.7)
+plt.title(f'MPS Mixto (Mejorado) - Demanda Insatisfecha - {PRODUCTO_A_PLANIFICAR}')
+plt.xlabel('Período (Semana)')
+```
 ---
 
 ## **Parte 3: Conclusión y Próximos Pasos**
