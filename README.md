@@ -410,19 +410,16 @@ plt.show()
 
 #### * **Objetivo:** Producir una cantidad constante cada semana, usando el inventario para absorber variaciones de demanda.
 
-```python
-print("\n--- Calculando MPS Nivelado (Level) ---")
+```Python
+print("\n--- Calculando MPS Nivelado (Level) - CORREGIDO ---")
 
-# 1. Calcular la producción nivelada semanal necesaria
+# 1. Calcular la producción nivelada semanal necesaria (igual que antes)
 total_demanda = demanda_semanal['Demanda'].sum()
 num_periodos = len(demanda_semanal)
-# Objetivo: terminar con el stock de seguridad al final del horizonte
 produccion_nivelada_requerida = (total_demanda + STOCK_SEGURIDAD - INVENTARIO_INICIAL) / num_periodos
-
-# Asegurarse que la producción no sea negativa
 produccion_nivelada_requerida = max(0, produccion_nivelada_requerida)
 
-# 2. Aplicar restricción de capacidad
+# 2. Aplicar restricción de capacidad (igual que antes)
 plan_produccion_nivelado = min(CAPACIDAD_PRODUCCION_SEMANAL, produccion_nivelada_requerida)
 
 print(f"Demanda Total: {total_demanda}, Períodos: {num_periodos}")
@@ -431,16 +428,20 @@ if plan_produccion_nivelado < produccion_nivelada_requerida:
     print(f"*Alerta: La capacidad ({CAPACIDAD_PRODUCCION_SEMANAL}) es menor a la producción nivelada requerida.")
     print(f"  Se usará el plan nivelado limitado por capacidad: {plan_produccion_nivelado:.0f} unidades/semana")
 else:
-    print(f"Plan de Producción Nivelado: {plan_produccion_nivelado:.0f} unidades/semana (Redondeado o exacto)")
-    # Podríamos redondear hacia arriba si preferimos, pero mantengámoslo simple
-    plan_produccion_nivelado = round(plan_produccion_nivelado) # Redondear al entero más cercano
+    # Redondear al entero más cercano (o podríamos usar math.ceil si preferimos redondear siempre hacia arriba)
+    # import math
+    # plan_produccion_nivelado = math.ceil(plan_produccion_nivelado)
+    plan_produccion_nivelado = round(plan_produccion_nivelado)
+    print(f"Plan de Producción Nivelado: {plan_produccion_nivelado:.0f} unidades/semana")
 
-# Crear DataFrame para el MPS Nivelado
+
+# Crear DataFrame para el MPS Nivelado - Añadimos columna para Demanda Insatisfecha
 mps_level = demanda_semanal.copy()
 mps_level['Inventario_Inicial'] = 0.0
 mps_level['Plan_Produccion'] = plan_produccion_nivelado # Es constante
 mps_level['Disponible'] = 0.0
 mps_level['Inventario_Final'] = 0.0
+mps_level['Demanda_Insatisfecha'] = 0.0 # Nueva columna
 
 # Inicializar inventario
 inv_anterior = INVENTARIO_INICIAL
@@ -449,6 +450,7 @@ inv_anterior = INVENTARIO_INICIAL
 for index, row in mps_level.iterrows():
     periodo = row['Periodo']
     demanda_periodo = row['Demanda']
+    demanda_insatisfecha_periodo = 0 # Inicializar para este período
 
     inv_inicial_periodo = inv_anterior
     mps_level.loc[index, 'Inventario_Inicial'] = inv_inicial_periodo
@@ -459,44 +461,68 @@ for index, row in mps_level.iterrows():
     disponible_periodo = inv_inicial_periodo + plan_prod
     mps_level.loc[index, 'Disponible'] = disponible_periodo
 
-    inv_final_periodo = disponible_periodo - demanda_periodo
+    # Calcular inventario final *teórico*
+    inv_final_teorico = disponible_periodo - demanda_periodo
 
-    # ¡CRÍTICO! Verificar stockouts o inventario negativo
-    if inv_final_periodo < 0:
-        print(f"  *ERROR Periodo {periodo}: ¡Inventario Final Negativo! ({inv_final_periodo:.0f}). "
-              f"El plan nivelado no es suficiente.")
-        # En un caso real, aquí se detendría o ajustaría. Para el ejemplo, lo dejamos negativo.
-        # Opcionalmente, podríamos forzarlo a 0 y registrar la demanda insatisfecha.
-        # inv_final_periodo = 0 # Forzar a cero si no se permiten negativos
-    elif inv_final_periodo < STOCK_SEGURIDAD:
-         print(f"  *Alerta Periodo {periodo}: Inventario Final ({inv_final_periodo:.0f}) "
-               f"por debajo del Stock de Seguridad ({STOCK_SEGURIDAD}).")
+    # --- CORRECCIÓN: Manejo de Inventario Negativo ---
+    if inv_final_teorico < 0:
+        # Stockout! No se pudo satisfacer toda la demanda
+        demanda_insatisfecha_periodo = abs(inv_final_teorico)
+        inv_final_real = 0 # El inventario físico no puede ser negativo
+        print(f"  *STOCKOUT Periodo {periodo}: Demanda insatisfecha de {demanda_insatisfecha_periodo:.0f} unidades. "
+              f"Inventario final forzado a 0.")
+    else:
+        # No hubo stockout
+        inv_final_real = inv_final_teorico
+        # Aún así, verificar si está por debajo del stock de seguridad
+        if inv_final_real < STOCK_SEGURIDAD:
+             print(f"  *Alerta Periodo {periodo}: Inventario Final ({inv_final_real:.0f}) "
+                   f"por debajo del Stock de Seguridad ({STOCK_SEGURIDAD}).")
+    # ------------------------------------------------
 
+    # Guardar los valores calculados
+    mps_level.loc[index, 'Inventario_Final'] = inv_final_real
+    mps_level.loc[index, 'Demanda_Insatisfecha'] = demanda_insatisfecha_periodo
 
-    mps_level.loc[index, 'Inventario_Final'] = inv_final_periodo
-    inv_anterior = inv_final_periodo
+    # Preparar para el siguiente período usando el inventario final REAL (no negativo)
+    inv_anterior = inv_final_real
 
-# Mostrar resultados
-print("\nResultados MPS Nivelado:")
-print(mps_level[['Periodo', 'Inventario_Inicial', 'Demanda', 'Plan_Produccion', 'Inventario_Final']].round(0).head(15))
+# Mostrar resultados - Incluir Demanda Insatisfecha
+print("\nResultados MPS Nivelado (Corregido):")
+print(mps_level[['Periodo', 'Inventario_Inicial', 'Demanda', 'Plan_Produccion', 'Inventario_Final', 'Demanda_Insatisfecha']].round(0).head(15))
 
-# Graficar resultados MPS Level
+# --- Gráficos Actualizados ---
+
+# Gráfico 1: Inventario, Demanda, Producción
 plt.figure(figsize=(14, 7))
 plt.plot(mps_level['Periodo'], mps_level['Demanda'], label='Demanda', color='blue', marker='o', linestyle='--')
 plt.plot(mps_level['Periodo'], mps_level['Plan_Produccion'], label='Plan Producción Nivelado', color='purple', marker='^')
 plt.plot(mps_level['Periodo'], mps_level['Inventario_Final'], label='Inventario Final', color='green', marker='s')
 plt.axhline(STOCK_SEGURIDAD, color='gray', linestyle=':', label=f'Stock Seguridad ({STOCK_SEGURIDAD})')
-plt.axhline(0, color='black', linestyle='-', linewidth=0.5) # Línea cero para ver negativos
-#plt.axhline(CAPACIDAD_PRODUCCION_SEMANAL, color='orange', linestyle=':', label=f'Capacidad ({CAPACIDAD_PRODUCCION_SEMANAL})') # Ya aplicado
-plt.title(f'MPS Nivelado - {PRODUCTO_A_PLANIFICAR}')
+plt.axhline(0, color='black', linestyle='-', linewidth=0.5) # Línea cero
+plt.title(f'MPS Nivelado (Corregido) - Inventario - {PRODUCTO_A_PLANIFICAR}')
 plt.xlabel('Período (Semana)')
 plt.ylabel('Unidades')
-plt.ylim(bottom=min(0, mps_level['Inventario_Final'].min() - 50)) # Ajustar eje Y si hay negativos
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.show()
-```
+
+# Gráfico 2: Demanda Insatisfecha (Stockouts)
+plt.figure(figsize=(14, 5))
+plt.bar(mps_level['Periodo'], mps_level['Demanda_Insatisfecha'], label='Demanda Insatisfecha', color='red', alpha=0.7)
+plt.title(f'MPS Nivelado (Corregido) - Demanda Insatisfecha - {PRODUCTO_A_PLANIFICAR}')
+plt.xlabel('Período (Semana)')
+plt.ylabel('Unidades Insatisfechas')
+plt.legend()
+plt.grid(axis='y') # Rejilla solo en eje Y
+plt.tight_layout()
+# Solo mostrar si hubo demanda insatisfecha
+if mps_level['Demanda_Insatisfecha'].sum() > 0:
+    plt.show()
+else:
+    print("\nNo hubo demanda insatisfecha en el plan nivelado.")
+    plt.close() # Cerrar la figura si no hay nada que mostrar
 
 ### **2.4 Ejercicio 3: Calcular MPS Mixto (Mixed)**
 
